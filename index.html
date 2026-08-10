@@ -157,9 +157,19 @@
   </div>
 
   <!-- JavaScript Application Logic -->
+  <!-- JavaScript Application Logic -->
   <script>
-    // State Aplikasi
-    let gasUrl = localStorage.getItem('https://script.google.com/macros/s/AKfycbzwrfVGzMHmlWUxr9NZl8lp2j_YshyDHHVO9QpEuBvJQKfqa8QQKDfOCgiRZqCPqmWN/exec') || '';
+    // =========================================================================
+    // 1. PASTE / TEMPEL URL GOOGLE APPS SCRIPT ANDA DI DALAM TANDA PETIK DI BAWAH:
+    // =========================================================================
+    const HARDCODED_GAS_URL = "PASTE_URL_WEB_APP_GAS_ANDA_DI_SINI"; 
+    // Contoh: "https://script.google.com/macros/s/AKfycbx.../exec"
+
+    // Prioritaskan URL hardcode, jika kosong baru cek localStorage
+    let gasUrl = HARDCODED_GAS_URL !== "PASTE_URL_WEB_APP_GAS_ANDA_DI_SINI" && HARDCODED_GAS_URL !== "" 
+                 ? HARDCODED_GAS_URL 
+                 : (localStorage.getItem('T2Q_GAS_URL') || '');
+
     let masterData = []; // Data mentah dari Google Sheets
     let currentStudents = []; // Siswa yang sedang ditampilkan di tabel
 
@@ -172,21 +182,21 @@
       // Set Tanggal Default Hari Ini
       document.getElementById('inputTanggal').value = new Date().toISOString().split('T')[0];
       
-      if (!gasUrl) {
-        toggleConfigModal();
-      } else {
+      if (gasUrl) {
         document.getElementById('gasUrlInput').value = gasUrl;
         fetchInitialData();
+      } else {
+        toggleConfigModal();
       }
     });
 
-    // Toggle Modal Config
+    // Toggle Modal Config (Bisa dibuka dari tombol gear jika ingin ubah URL)
     function toggleConfigModal() {
       const modal = document.getElementById('configModal');
       modal.classList.toggle('hidden');
     }
 
-    // Simpan URL GAS
+    // Simpan URL GAS Manual (Fallback)
     function saveGasUrl() {
       const input = document.getElementById('gasUrlInput').value.trim();
       if (!input) {
@@ -347,7 +357,6 @@
         let detailInputsHtml = '';
 
         if (program === 'Tahsin') {
-          // Input Buku (Select) & Halaman (Text/Number)
           const bukuOptionsHtml = BUKU_OPTIONS.map(b => `<option value="${b}">${b}</option>`).join('');
           detailInputsHtml = `
             <td class="p-3">
@@ -360,7 +369,6 @@
             </td>
           `;
         } else {
-          // Input Surat (Text) & Ayat (Text)
           detailInputsHtml = `
             <td class="p-3">
               <input type="text" id="surat_${index}" placeholder="Contoh: Al-Mulk" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
@@ -499,7 +507,6 @@
       showLoading(`Mengirimkan ${entries.length} data jurnal ke Google Sheets...`);
 
       try {
-        // Menggunakan text/plain untuk menghindari batasan CORS Preflight Apps Script
         const response = await fetch(gasUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -510,7 +517,6 @@
 
         if (json.status === 'success') {
           alert('✅ ' + json.message);
-          // Optional: Increment pertemuan number automatically
           document.getElementById('inputPertemuan').value = parseInt(pertemuan) + 1;
         } else {
           alert('❌ Gagal menyimpan data: ' + json.message);
