@@ -290,7 +290,7 @@
 
     currentStudents.forEach((siswa, index) => {
       const tr = document.createElement('tr');
-      tr.id = `row_${index}`; // Beri ID pada row
+      tr.id = `row_${index}`;
       tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
       
       let detailInputsHtml = '';
@@ -342,7 +342,6 @@
     });
   }
 
-  // Toggle Enable/Disable Input & Efek Gelap/Unselect
   function toggleRowDetails(index) {
     const attendance = document.getElementById(`attendance_${index}`).value;
     const detailFields = document.querySelectorAll(`.detail-field_${index}`);
@@ -461,7 +460,15 @@
 
       if (json.status === 'success') {
         alert('✅ ' + json.message);
+        
+        // Reset Form & Layar ke Default
         document.getElementById('inputPertemuan').value = parseInt(pertemuan) + 1;
+        document.getElementById('selectKelas').value = '';
+        const pengampuSelect = document.getElementById('selectPengampu');
+        pengampuSelect.value = '';
+        pengampuSelect.disabled = true;
+
+        resetTable();
       } else {
         alert('❌ Gagal menyimpan data: ' + json.message);
       }
