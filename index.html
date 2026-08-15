@@ -25,10 +25,6 @@
         </h1>
         <p class="text-sky-100 text-sm mt-1">Input Massal Jurnal Pembelajaran Tahsin & Tahfidz</p>
       </div>
-      <!-- Config Web App URL Modal Trigger -->
-      <button onclick="toggleConfigModal()" class="bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-lg text-xs font-semibold backdrop-blur-sm border border-white/20 transition flex items-center gap-2">
-        <i class="fa-solid fa-gear"></i> Setup Web App URL
-      </button>
     </div>
   </header>
 
@@ -143,32 +139,10 @@
     <p id="loadingText" class="font-semibold text-sm">Memuat Data...</p>
   </div>
 
-  <!-- Modal Config Web App URL -->
-  <div id="configModal" class="fixed inset-0 bg-slate-900/50 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
-      <h3 class="text-lg font-bold text-slate-800 mb-2">Konfigurasi Google Apps Script URL</h3>
-      <p class="text-xs text-slate-500 mb-4">Masukkan URL Web App hasil deploy Google Apps Script Anda.</p>
-      <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm mb-4 focus:ring-2 focus:ring-sky-500 outline-none">
-      <div class="flex justify-end gap-2">
-        <button onclick="toggleConfigModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-        <button onclick="saveGasUrl()" class="px-4 py-2 text-xs font-semibold bg-sky-600 text-white rounded-lg hover:bg-sky-700">Simpan & Sync</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- JavaScript Application Logic -->
   <!-- JavaScript Application Logic -->
   <script>
-    // =========================================================================
-    // 1. PASTE / TEMPEL URL GOOGLE APPS SCRIPT ANDA DI DALAM TANDA PETIK DI BAWAH:
-    // =========================================================================
-    const HARDCODED_GAS_URL = "PASTE_URL_WEB_APP_GAS_ANDA_DI_SINI"; 
-    // Contoh: "https://script.google.com/macros/s/AKfycbx.../exec"
-
-    // Prioritaskan URL hardcode, jika kosong baru cek localStorage
-    let gasUrl = HARDCODED_GAS_URL !== "PASTE_URL_WEB_APP_GAS_ANDA_DI_SINI" && HARDCODED_GAS_URL !== "" 
-                 ? HARDCODED_GAS_URL 
-                 : (localStorage.getItem('T2Q_GAS_URL') || '');
+    // URL Google Apps Script T2Q yang sudah terkunci otomatis
+    const gasUrl = "https://script.google.com/macros/s/AKfycbzwrfVGzMHmlWUxr9NZl8lp2j_YshyDHHVO9QpEuBvJQKfqa8QQKDfOCgiRZqCPqmWN/exec"; 
 
     let masterData = []; // Data mentah dari Google Sheets
     let currentStudents = []; // Siswa yang sedang ditampilkan di tabel
@@ -182,32 +156,9 @@
       // Set Tanggal Default Hari Ini
       document.getElementById('inputTanggal').value = new Date().toISOString().split('T')[0];
       
-      if (gasUrl) {
-        document.getElementById('gasUrlInput').value = gasUrl;
-        fetchInitialData();
-      } else {
-        toggleConfigModal();
-      }
-    });
-
-    // Toggle Modal Config (Bisa dibuka dari tombol gear jika ingin ubah URL)
-    function toggleConfigModal() {
-      const modal = document.getElementById('configModal');
-      modal.classList.toggle('hidden');
-    }
-
-    // Simpan URL GAS Manual (Fallback)
-    function saveGasUrl() {
-      const input = document.getElementById('gasUrlInput').value.trim();
-      if (!input) {
-        alert('Harap masukkan URL Web App Google Apps Script!');
-        return;
-      }
-      gasUrl = input;
-      localStorage.setItem('T2Q_GAS_URL', gasUrl);
-      toggleConfigModal();
+      // Mengambil data awal langsung tanpa menampilkan modal
       fetchInitialData();
-    }
+    });
 
     // Show/Hide Loading Overlay
     function showLoading(text = 'Memuat Data...') {
