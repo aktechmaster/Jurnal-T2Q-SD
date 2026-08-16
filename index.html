@@ -462,6 +462,10 @@ function resetTable() {
       if (json.status === 'success') {
         alert('✅ ' + json.message);
         
+        // Memuat ulang data jatah terbaru dari Google Sheets
+        showLoading('Memperbarui data jatah pengisian guru...');
+        await fetchInitialData();
+        
         // Reset Form & Layar ke Default
         document.getElementById('inputPertemuan').value = parseInt(pertemuan) + 1;
         document.getElementById('selectKelas').value = '';
