@@ -156,9 +156,15 @@
 </div>
 
   <!-- JavaScript Application Logic -->
-  <script>
-  // URL Google Apps Script T2Q
-const gasUrl = "https://script.google.com/macros/s/AKfycbzwrfVGzMHmlWUxr9NZl8lp2j_YshyDHHVO9QpEuBvJQKfqa8QQKDfOCgiRZqCPqmWN/exec"; 
+<script>
+// ==========================================
+// 1. HUBUNGKAN KEDUA URL SPREADSHEET DI SINI
+// ==========================================
+// Tali 1: URL Spreadsheet Pertama (UNTUK BACA JATAH JURNAL & DATA)
+const urlBaca = "https://script.google.com/macros/s/AKfycbyZKEYXblP_bpPvojEjemtvw0ozji2pp5wIv6igMSSdqj3ICm11F7BCr6NbqGzzfQxYfw/exec"; 
+
+// Tali 2: URL Spreadsheet Kedua (UNTUK TULIS/KIRIM INPUTAN JURNAL)
+const urlTulis = "https://script.google.com/macros/s/AKfycbzwrfVGzMHmlWUxr9NZl8lp2j_YshyDHHVO9QpEuBvJQKfqa8QQKDfOCgiRZqCPqmWN/exec"; 
 
 let masterData = []; 
 let currentStudents = []; 
@@ -225,15 +231,20 @@ function cleanName(str) {
   return String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+// ==========================================
+// 2. AMBIL DATA (TEMBAK KE urlBaca)
+// ==========================================
 async function fetchInitialData() {
-  if (!gasUrl) return;
-  showLoading('Mengambil Data dari Google Sheets...');
+  if (!urlBaca) return;
+  showLoading('Mengambil Data Jatah dari Google Sheets...');
 
   try {
-    const response = await fetch(gasUrl);
+    // MEMANGGIL URL BACA (Spreadsheet Pertama)
+    const response = await fetch(urlBaca);
     const json = await response.json();
 
-    if (json.status === 'success') {
+    // Cek jika respon berhasil diterima
+    if (json.status === 'success' || json.jurnalHarianT2Q || json.data) {
       masterData = json.data || [];
       
       // PARSING DATA JATAH: Mengubah array/object sheet menjadi Map ber-key nama bersih
@@ -258,11 +269,11 @@ async function fetchInitialData() {
 
       populateKelasDropdown();
     } else {
-      showAlert('Gagal Memuat', 'Gagal memuat data: ' + json.message, 'error');
+      showAlert('Gagal Memuat', 'Gagal memuat data dari Spreadsheet Baca.', 'error');
     }
   } catch (err) {
     console.error(err);
-    showAlert('Kesalahan Koneksi', 'Terjadi kesalahan saat menghubungkan ke Google Apps Script: ' + err.message, 'error');
+    showAlert('Kesalahan Koneksi', 'Terjadi kesalahan saat membaca dari Google Apps Script: ' + err.message, 'error');
   } finally {
     hideLoading();
   }
@@ -495,6 +506,9 @@ function resetTable() {
   `;
 }
 
+// ==========================================
+// 3. KIRIM HASIL INPUT (TEMBAK KE urlTulis)
+// ==========================================
 async function submitBatchData() {
   const tanggal = document.getElementById('inputTanggal').value;
   const pertemuan = document.getElementById('inputPertemuan').value;
@@ -547,7 +561,8 @@ async function submitBatchData() {
   showLoading(`Mengirimkan ${entries.length} data jurnal ke Google Sheets...`);
 
   try {
-    const response = await fetch(gasUrl, {
+    // MEMANGGIL URL TULIS (Spreadsheet Kedua)
+    const response = await fetch(urlTulis, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
