@@ -139,6 +139,22 @@
     <p id="loadingText" class="font-semibold text-sm">Memuat Data...</p>
   </div>
 
+  <!-- Custom Modal Popup -->
+<div id="customModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center transform transition-all scale-100">
+    <div id="modalIcon" class="w-16 h-16 rounded-full bg-amber-100 text-amber-500 flex items-center justify-center mx-auto mb-4 text-2xl">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+    <h3 id="modalTitle" class="text-lg font-bold text-slate-800">Akses Ditolak</h3>
+    <p id="modalMessage" class="text-xs text-slate-500 mt-2 leading-relaxed">Pesan modal...</p>
+    <div class="mt-6">
+      <button id="modalBtn" onclick="closeModal()" class="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-md transition duration-200">
+        Mengerti
+      </button>
+    </div>
+  </div>
+</div>
+
   <!-- JavaScript Application Logic -->
   <script>
   // URL Google Apps Script T2Q yang sudah terkunci otomatis
@@ -237,21 +253,72 @@
     resetTable();
   }
 
-  function handlePengampuChange() {
-    const selectedKelas = document.getElementById('selectKelas').value;
-    const selectedPengampu = document.getElementById('selectPengampu').value;
+  // --- Fungsi Helper Modal UI ---
+function showAlert(title, message, type = 'warning') {
+  const modal = document.getElementById('customModal');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalMessage = document.getElementById('modalMessage');
+  const modalIcon = document.getElementById('modalIcon');
+  const modalBtn = document.getElementById('modalBtn');
 
-    if (!selectedKelas || !selectedPengampu) {
-      resetTable();
-      return;
-    }
+  modalTitle.textContent = title;
+  modalMessage.innerHTML = message;
 
-    currentStudents = masterData.filter(
-      item => item.kelas === selectedKelas && item.pengampu === selectedPengampu
-    );
-
-    renderStudentTable();
+  if (type === 'warning') {
+    modalIcon.className = "w-16 h-16 rounded-full bg-amber-100 text-amber-500 flex items-center justify-center mx-auto mb-4 text-2xl";
+    modalIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+    modalBtn.className = "w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-md transition";
+  } else if (type === 'error') {
+    modalIcon.className = "w-16 h-16 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center mx-auto mb-4 text-2xl";
+    modalIcon.innerHTML = '<i class="fa-solid fa-circle-xmark"></i>';
+    modalBtn.className = "w-full py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl shadow-md transition";
+  } else if (type === 'success') {
+    modalIcon.className = "w-16 h-16 rounded-full bg-emerald-100 text-emerald-500 flex items-center justify-center mx-auto mb-4 text-2xl";
+    modalIcon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+    modalBtn.className = "w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-md transition";
   }
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function closeModal() {
+  const modal = document.getElementById('customModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+// --- Perbaikan Fungsi handlePengampuChange ---
+function handlePengampuChange() {
+  const selectedKelas = document.getElementById('selectKelas').value;
+  const selectedPengampu = document.getElementById('selectPengampu').value;
+
+  if (!selectedKelas || !selectedPengampu) {
+    resetTable();
+    return;
+  }
+
+  // Pengecekan Jatah Mengajar dari Sheet Jurnal Harian T2Q
+  const infoJatah = mapJurnalT2Q[selectedPengampu];
+  const target = infoJatah ? Number(infoJatah.target) : 0;
+
+  if (target <= 0) {
+    showAlert(
+      'Akses Ditolak', 
+      `<b>Ust/Ustadzah ${selectedPengampu}</b> tidak memiliki jatah mengajar hari ini (Yang harus diisi: 0).`, 
+      'warning'
+    );
+    document.getElementById('selectPengampu').value = '';
+    resetTable();
+    return;
+  }
+
+  currentStudents = masterData.filter(
+    item => item.kelas === selectedKelas && item.pengampu === selectedPengampu
+  );
+
+  renderStudentTable();
+}
 
   function handleProgramChange() {
     const program = document.getElementById('selectProgram').value;
