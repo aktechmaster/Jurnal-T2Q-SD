@@ -139,457 +139,346 @@
     <p id="loadingText" class="font-semibold text-sm">Memuat Data...</p>
   </div>
 
-  <!-- Custom Modal Popup -->
-<div id="customModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-  <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center transform transition-all scale-100">
-    <div id="modalIcon" class="w-16 h-16 rounded-full bg-amber-100 text-amber-500 flex items-center justify-center mx-auto mb-4 text-2xl">
-      <i class="fa-solid fa-triangle-exclamation"></i>
-    </div>
-    <h3 id="modalTitle" class="text-lg font-bold text-slate-800">Akses Ditolak</h3>
-    <p id="modalMessage" class="text-xs text-slate-500 mt-2 leading-relaxed">Pesan modal...</p>
-    <div class="mt-6">
-      <button id="modalBtn" onclick="closeModal()" class="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-md transition duration-200">
-        Mengerti
-      </button>
-    </div>
-  </div>
-</div>
-
   <!-- JavaScript Application Logic -->
-<script>
-// ==========================================
-// 1. HUBUNGKAN KEDUA URL SPREADSHEET DI SINI
-// ==========================================
-// Tali 1: URL Spreadsheet Pertama (UNTUK BACA JATAH JURNAL & DATA)
-const urlBaca = "https://script.google.com/macros/s/AKfycbyZKEYXblP_bpPvojEjemtvw0ozji2pp5wIv6igMSSdqj3ICm11F7BCr6NbqGzzfQxYfw/exec"; 
+  <script>
+  // URL Google Apps Script T2Q yang sudah terkunci otomatis
+  const gasUrl = "https://script.google.com/macros/s/AKfycbzwrfVGzMHmlWUxr9NZl8lp2j_YshyDHHVO9QpEuBvJQKfqa8QQKDfOCgiRZqCPqmWN/exec"; 
 
-// Tali 2: URL Spreadsheet Kedua (UNTUK TULIS/KIRIM INPUTAN JURNAL)
-const urlTulis = "https://script.google.com/macros/s/AKfycbzwrfVGzMHmlWUxr9NZl8lp2j_YshyDHHVO9QpEuBvJQKfqa8QQKDfOCgiRZqCPqmWN/exec"; 
+  let masterData = []; 
+  let currentStudents = []; 
 
-let masterData = []; 
-let currentStudents = []; 
-let mapJurnalT2Q = {}; // Penampung jatah mengajar hasil parsing
+  const BUKU_OPTIONS = [
+    'Wafa 1', 'Wafa 2', 'Wafa 3', 'Wafa 4', 'Wafa 5', 'Buku Tajwid', 'Buku Ghorib', "Al-Qur'an"
+  ];
 
-const BUKU_OPTIONS = [
-  'Wafa 1', 'Wafa 2', 'Wafa 3', 'Wafa 4', 'Wafa 5', 'Buku Tajwid', 'Buku Ghorib', "Al-Qur'an"
-];
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('inputTanggal').value = new Date().toISOString().split('T')[0];
+    fetchInitialData();
+  });
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('inputTanggal').value = new Date().toISOString().split('T')[0];
-  fetchInitialData();
-});
-
-function showLoading(text = 'Memuat Data...') {
-  document.getElementById('loadingText').innerText = text;
-  document.getElementById('loadingOverlay').classList.remove('hidden');
-  document.getElementById('loadingOverlay').classList.add('flex');
-}
-
-function hideLoading() {
-  document.getElementById('loadingOverlay').classList.add('hidden');
-  document.getElementById('loadingOverlay').classList.remove('flex');
-}
-
-// --- Custom Modal Helper ---
-function showAlert(title, message, type = 'warning') {
-  const modal = document.getElementById('customModal');
-  const modalTitle = document.getElementById('modalTitle');
-  const modalMessage = document.getElementById('modalMessage');
-  const modalIcon = document.getElementById('modalIcon');
-  const modalBtn = document.getElementById('modalBtn');
-
-  modalTitle.textContent = title;
-  modalMessage.innerHTML = message;
-
-  if (type === 'warning') {
-    modalIcon.className = "w-16 h-16 rounded-full bg-amber-100 text-amber-500 flex items-center justify-center mx-auto mb-4 text-2xl";
-    modalIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
-    modalBtn.className = "w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-md transition";
-  } else if (type === 'error') {
-    modalIcon.className = "w-16 h-16 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center mx-auto mb-4 text-2xl";
-    modalIcon.innerHTML = '<i class="fa-solid fa-circle-xmark"></i>';
-    modalBtn.className = "w-full py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl shadow-md transition";
-  } else if (type === 'success') {
-    modalIcon.className = "w-16 h-16 rounded-full bg-emerald-100 text-emerald-500 flex items-center justify-center mx-auto mb-4 text-2xl";
-    modalIcon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
-    modalBtn.className = "w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-md transition";
+  function showLoading(text = 'Memuat Data...') {
+    document.getElementById('loadingText').innerText = text;
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+    document.getElementById('loadingOverlay').classList.add('flex');
   }
 
-  modal.classList.remove('hidden');
-  modal.classList.add('flex');
-}
+  function hideLoading() {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    document.getElementById('loadingOverlay').classList.remove('flex');
+  }
 
-function closeModal() {
-  const modal = document.getElementById('customModal');
-  modal.classList.add('hidden');
-  modal.classList.remove('flex');
-}
+  async function fetchInitialData() {
+    if (!gasUrl) return;
+    showLoading('Mengambil Data dari Google Sheets...');
 
-// --- Normalisasi Nama untuk Pencocokan Akurat ---
-function cleanName(str) {
-  if (!str) return '';
-  return String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
-}
+    try {
+      const response = await fetch(gasUrl);
+      const json = await response.json();
 
-// ==========================================
-// 2. AMBIL DATA (TEMBAK KE urlBaca)
-// ==========================================
-async function fetchInitialData() {
-  if (!urlBaca) return;
-  showLoading('Mengambil Data Jatah dari Google Sheets...');
-
-  try {
-    // MEMANGGIL URL BACA (Spreadsheet Pertama)
-    const response = await fetch(urlBaca);
-    const json = await response.json();
-
-    // Cek jika respon berhasil diterima
-    if (json.status === 'success' || json.jurnalHarianT2Q || json.data) {
-      masterData = json.data || [];
-      
-      // PARSING DATA JATAH: Mengubah array/object sheet menjadi Map ber-key nama bersih
-      mapJurnalT2Q = {};
-      const rawJatah = json.jurnalHarianT2Q;
-
-      if (Array.isArray(rawJatah)) {
-        rawJatah.forEach(item => {
-          const nama = item['Nama Lengkap'] || item.nama || item['Nama'];
-          const target = item['YANG HARUS DIISI'] ?? item.yangHarusDiisi ?? item.target ?? 0;
-          if (nama) {
-            mapJurnalT2Q[cleanName(nama)] = Number(target);
-          }
-        });
-      } else if (typeof rawJatah === 'object' && rawJatah !== null) {
-        Object.keys(rawJatah).forEach(key => {
-          const val = rawJatah[key];
-          const target = typeof val === 'object' ? (val['YANG HARUS DIISI'] ?? val.target ?? 0) : val;
-          mapJurnalT2Q[cleanName(key)] = Number(target);
-        });
+      if (json.status === 'success') {
+        masterData = json.data;
+        populateKelasDropdown();
+      } else {
+        alert('Gagal memuat data: ' + json.message);
       }
-
-      populateKelasDropdown();
-    } else {
-      showAlert('Gagal Memuat', 'Gagal memuat data dari Spreadsheet Baca.', 'error');
+    } catch (err) {
+      console.error(err);
+      alert('Terjadi kesalahan saat menghubungkan ke Google Apps Script: ' + err.message);
+    } finally {
+      hideLoading();
     }
-  } catch (err) {
-    console.error(err);
-    showAlert('Kesalahan Koneksi', 'Terjadi kesalahan saat membaca dari Google Apps Script: ' + err.message, 'error');
-  } finally {
-    hideLoading();
   }
-}
 
-function populateKelasDropdown() {
-  const kelasSelect = document.getElementById('selectKelas');
-  kelasSelect.innerHTML = '<option value="">-- Pilih Kelas --</option>';
+  function populateKelasDropdown() {
+    const kelasSelect = document.getElementById('selectKelas');
+    kelasSelect.innerHTML = '<option value="">-- Pilih Kelas --</option>';
 
-  const uniqueKelas = [...new Set(masterData.map(item => item.kelas))].sort();
-  uniqueKelas.forEach(k => {
-    const opt = document.createElement('option');
-    opt.value = k;
-    opt.textContent = k;
-    kelasSelect.appendChild(opt);
-  });
+    const uniqueKelas = [...new Set(masterData.map(item => item.kelas))].sort();
+    uniqueKelas.forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = k;
+      kelasSelect.appendChild(opt);
+    });
 
-  const pengampuSelect = document.getElementById('selectPengampu');
-  pengampuSelect.innerHTML = '<option value="">-- Pilih Pengampu --</option>';
-  pengampuSelect.disabled = true;
-  
-  resetTable();
-}
-
-function handleKelasChange() {
-  const selectedKelas = document.getElementById('selectKelas').value;
-  const pengampuSelect = document.getElementById('selectPengampu');
-
-  pengampuSelect.innerHTML = '<option value="">-- Pilih Pengampu --</option>';
-
-  if (!selectedKelas) {
+    const pengampuSelect = document.getElementById('selectPengampu');
+    pengampuSelect.innerHTML = '<option value="">-- Pilih Pengampu --</option>';
     pengampuSelect.disabled = true;
+    
     resetTable();
-    return;
   }
 
-  const filteredPengampu = [...new Set(
-    masterData.filter(item => item.kelas === selectedKelas).map(item => item.pengampu)
-  )].sort();
+  function handleKelasChange() {
+    const selectedKelas = document.getElementById('selectKelas').value;
+    const pengampuSelect = document.getElementById('selectPengampu');
 
-  filteredPengampu.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p;
-    opt.textContent = p;
-    pengampuSelect.appendChild(opt);
-  });
+    pengampuSelect.innerHTML = '<option value="">-- Pilih Pengampu --</option>';
 
-  pengampuSelect.disabled = false;
-  resetTable();
-}
+    if (!selectedKelas) {
+      pengampuSelect.disabled = true;
+      resetTable();
+      return;
+    }
 
-function handlePengampuChange() {
-  const selectedKelas = document.getElementById('selectKelas').value;
-  const selectedPengampu = document.getElementById('selectPengampu').value;
+    const filteredPengampu = [...new Set(
+      masterData.filter(item => item.kelas === selectedKelas).map(item => item.pengampu)
+    )].sort();
 
-  if (!selectedKelas || !selectedPengampu) {
+    filteredPengampu.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      pengampuSelect.appendChild(opt);
+    });
+
+    pengampuSelect.disabled = false;
     resetTable();
-    return;
   }
 
-  // Pencarian nama yang sudah dinormalisasi
-  const keyPengampu = cleanName(selectedPengampu);
-  const target = mapJurnalT2Q[keyPengampu] ?? 0;
+  function handlePengampuChange() {
+    const selectedKelas = document.getElementById('selectKelas').value;
+    const selectedPengampu = document.getElementById('selectPengampu').value;
 
-  if (target <= 0) {
-    showAlert(
-      'Akses Ditolak', 
-      `<b>Ust/Ustadzah ${selectedPengampu}</b> tidak memiliki jatah mengajar hari ini (Yang harus diisi: ${target}).`, 
-      'warning'
+    if (!selectedKelas || !selectedPengampu) {
+      resetTable();
+      return;
+    }
+
+    currentStudents = masterData.filter(
+      item => item.kelas === selectedKelas && item.pengampu === selectedPengampu
     );
-    document.getElementById('selectPengampu').value = '';
-    resetTable();
-    return;
-  }
 
-  currentStudents = masterData.filter(
-    item => item.kelas === selectedKelas && item.pengampu === selectedPengampu
-  );
-
-  renderStudentTable();
-
-  document.getElementById('summaryText').textContent = 
-    `Terdeteksi jatah mengajar: ${target} kelas. (${currentStudents.length} siswa siap diinput).`;
-}
-
-function handleProgramChange() {
-  const program = document.getElementById('selectProgram').value;
-  const thDetail1 = document.getElementById('thDetail1');
-  const thDetail2 = document.getElementById('thDetail2');
-
-  if (program === 'Tahsin') {
-    thDetail1.textContent = 'Buku';
-    thDetail2.textContent = 'Halaman';
-  } else {
-    thDetail1.textContent = 'Surat';
-    thDetail2.textContent = 'Ayat';
-  }
-
-  if (currentStudents.length > 0) {
     renderStudentTable();
   }
-}
 
-function renderStudentTable() {
-  const tbody = document.getElementById('tableBody');
-  const program = document.getElementById('selectProgram').value;
-  const quickActions = document.getElementById('quickActions');
-  const btnSubmit = document.getElementById('btnSubmit');
-
-  if (currentStudents.length === 0) {
-    resetTable();
-    return;
-  }
-
-  quickActions.classList.remove('hidden');
-  btnSubmit.disabled = false;
-
-  document.getElementById('studentCountBadge').textContent = `Total: ${currentStudents.length} Siswa`;
-  document.getElementById('summaryText').textContent = `${currentStudents.length} siswa siap diinput.`;
-
-  tbody.innerHTML = '';
-
-  currentStudents.forEach((siswa, index) => {
-    const tr = document.createElement('tr');
-    tr.id = `row_${index}`;
-    tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
-    
-    let detailInputsHtml = '';
+  function handleProgramChange() {
+    const program = document.getElementById('selectProgram').value;
+    const thDetail1 = document.getElementById('thDetail1');
+    const thDetail2 = document.getElementById('thDetail2');
 
     if (program === 'Tahsin') {
-      const bukuOptionsHtml = BUKU_OPTIONS.map(b => `<option value="${b}">${b}</option>`).join('');
-      detailInputsHtml = `
+      thDetail1.textContent = 'Buku';
+      thDetail2.textContent = 'Halaman';
+    } else {
+      thDetail1.textContent = 'Surat';
+      thDetail2.textContent = 'Ayat';
+    }
+
+    if (currentStudents.length > 0) {
+      renderStudentTable();
+    }
+  }
+
+  function renderStudentTable() {
+    const tbody = document.getElementById('tableBody');
+    const program = document.getElementById('selectProgram').value;
+    const quickActions = document.getElementById('quickActions');
+    const btnSubmit = document.getElementById('btnSubmit');
+
+    if (currentStudents.length === 0) {
+      resetTable();
+      return;
+    }
+
+    quickActions.classList.remove('hidden');
+    btnSubmit.disabled = false;
+
+    document.getElementById('studentCountBadge').textContent = `Total: ${currentStudents.length} Siswa`;
+    document.getElementById('summaryText').textContent = `${currentStudents.length} siswa siap diinput.`;
+
+    tbody.innerHTML = '';
+
+    currentStudents.forEach((siswa, index) => {
+      const tr = document.createElement('tr');
+      tr.id = `row_${index}`;
+      tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+      
+      let detailInputsHtml = '';
+
+      if (program === 'Tahsin') {
+        const bukuOptionsHtml = BUKU_OPTIONS.map(b => `<option value="${b}">${b}</option>`).join('');
+        detailInputsHtml = `
+          <td class="p-3">
+            <select id="buku_${index}" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
+              ${bukuOptionsHtml}
+            </select>
+          </td>
+          <td class="p-3">
+            <input type="text" id="halaman_${index}" placeholder="Contoh: 12 / 1-5" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
+          </td>
+        `;
+      } else {
+        detailInputsHtml = `
+          <td class="p-3">
+            <input type="text" id="surat_${index}" placeholder="Contoh: Al-Mulk" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
+          </td>
+          <td class="p-3">
+            <input type="text" id="ayat_${index}" placeholder="Contoh: 1-10" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
+          </td>
+        `;
+      }
+
+      tr.innerHTML = `
+        <td class="p-3 text-center text-slate-400 font-medium">${index + 1}</td>
+        <td class="p-3 font-semibold text-slate-700">${siswa.namaSiswa}</td>
         <td class="p-3">
-          <select id="buku_${index}" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
-            ${bukuOptionsHtml}
+          <select id="attendance_${index}" onchange="toggleRowDetails(${index})" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-semibold focus:ring-1 focus:ring-sky-500">
+            <option value="Hadir" selected class="text-emerald-600">Hadir</option>
+            <option value="Sakit" class="text-amber-600">Sakit</option>
+            <option value="Izin" class="text-blue-600">Izin</option>
+            <option value="Alfa" class="text-rose-600">Alfa</option>
           </select>
         </td>
+        ${detailInputsHtml}
         <td class="p-3">
-          <input type="text" id="halaman_${index}" placeholder="Contoh: 12 / 1-5" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
+          <select id="keterangan_${index}" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
+            <option value="Lancar">Lancar</option>
+            <option value="Ulang">Ulang</option>
+          </select>
         </td>
       `;
-    } else {
-      detailInputsHtml = `
-        <td class="p-3">
-          <input type="text" id="surat_${index}" placeholder="Contoh: Al-Mulk" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
-        </td>
-        <td class="p-3">
-          <input type="text" id="ayat_${index}" placeholder="Contoh: 1-10" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
-        </td>
-      `;
-    }
 
-    tr.innerHTML = `
-      <td class="p-3 text-center text-slate-400 font-medium">${index + 1}</td>
-      <td class="p-3 font-semibold text-slate-700">${siswa.namaSiswa}</td>
-      <td class="p-3">
-        <select id="attendance_${index}" onchange="toggleRowDetails(${index})" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-semibold focus:ring-1 focus:ring-sky-500">
-          <option value="Hadir" selected class="text-emerald-600">Hadir</option>
-          <option value="Sakit" class="text-amber-600">Sakit</option>
-          <option value="Izin" class="text-blue-600">Izin</option>
-          <option value="Alfa" class="text-rose-600">Alfa</option>
-        </select>
-      </td>
-      ${detailInputsHtml}
-      <td class="p-3">
-        <select id="keterangan_${index}" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
-          <option value="Lancar">Lancar</option>
-          <option value="Ulang">Ulang</option>
-        </select>
-      </td>
+      tbody.appendChild(tr);
+    });
+  }
+
+  function toggleRowDetails(index) {
+    const attendance = document.getElementById(`attendance_${index}`).value;
+    const detailFields = document.querySelectorAll(`.detail-field_${index}`);
+    const row = document.getElementById(`row_${index}`);
+
+    if (attendance === 'Hadir') {
+      row.classList.remove('bg-slate-200', 'opacity-50');
+      row.classList.add('hover:bg-slate-50');
+
+      detailFields.forEach(field => {
+        field.disabled = false;
+        field.classList.remove('opacity-40', 'bg-slate-300');
+      });
+    } else {
+      row.classList.add('bg-slate-200', 'opacity-50');
+      row.classList.remove('hover:bg-slate-50');
+
+      detailFields.forEach(field => {
+        field.disabled = true;
+        field.classList.add('opacity-40', 'bg-slate-300');
+      });
+    }
+  }
+
+  function setAllAttendance(status) {
+    currentStudents.forEach((_, index) => {
+      const select = document.getElementById(`attendance_${index}`);
+      if (select) {
+        select.value = status;
+        toggleRowDetails(index);
+      }
+    });
+  }
+
+  function resetTable() {
+    currentStudents = [];
+    const tbody = document.getElementById('tableBody');
+    const quickActions = document.getElementById('quickActions');
+    const btnSubmit = document.getElementById('btnSubmit');
+
+    quickActions.classList.add('hidden');
+    btnSubmit.disabled = true;
+
+    document.getElementById('studentCountBadge').textContent = 'Pilih Kelas & Pengampu untuk menampilkan data siswa.';
+    document.getElementById('summaryText').textContent = 'Ready';
+
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="text-center py-10 text-slate-400">
+          <i class="fa-solid fa-inbox text-3xl mb-2 block"></i>
+          Belum ada siswa yang ditampilkan. Pilih Kelas dan Pengampu terlebih dahulu.
+        </td>
+      </tr>
     `;
-
-    tbody.appendChild(tr);
-  });
-}
-
-function toggleRowDetails(index) {
-  const attendance = document.getElementById(`attendance_${index}`).value;
-  const detailFields = document.querySelectorAll(`.detail-field_${index}`);
-  const row = document.getElementById(`row_${index}`);
-
-  if (attendance === 'Hadir') {
-    row.classList.remove('bg-slate-200', 'opacity-50');
-    row.classList.add('hover:bg-slate-50');
-
-    detailFields.forEach(field => {
-      field.disabled = false;
-      field.classList.remove('opacity-40', 'bg-slate-300');
-    });
-  } else {
-    row.classList.add('bg-slate-200', 'opacity-50');
-    row.classList.remove('hover:bg-slate-50');
-
-    detailFields.forEach(field => {
-      field.disabled = true;
-      field.classList.add('opacity-40', 'bg-slate-300');
-    });
   }
-}
 
-function setAllAttendance(status) {
-  currentStudents.forEach((_, index) => {
-    const select = document.getElementById(`attendance_${index}`);
-    if (select) {
-      select.value = status;
-      toggleRowDetails(index);
+  async function submitBatchData() {
+    const tanggal = document.getElementById('inputTanggal').value;
+    const pertemuan = document.getElementById('inputPertemuan').value;
+    const program = document.getElementById('selectProgram').value;
+    const kelas = document.getElementById('selectKelas').value;
+    const pengampu = document.getElementById('selectPengampu').value;
+
+    if (!tanggal || !pertemuan || !kelas || !pengampu) {
+      alert('Harap lengkapi semua parameter header (Tanggal, Pertemuan, Kelas, dan Pengampu)!');
+      return;
     }
-  });
-}
 
-function resetTable() {
-  currentStudents = [];
-  const tbody = document.getElementById('tableBody');
-  const quickActions = document.getElementById('quickActions');
-  const btnSubmit = document.getElementById('btnSubmit');
-
-  quickActions.classList.add('hidden');
-  btnSubmit.disabled = true;
-
-  document.getElementById('studentCountBadge').textContent = 'Pilih Kelas & Pengampu untuk menampilkan data siswa.';
-  document.getElementById('summaryText').textContent = 'Ready';
-
-  tbody.innerHTML = `
-    <tr>
-      <td colspan="6" class="text-center py-10 text-slate-400">
-        <i class="fa-solid fa-inbox text-3xl mb-2 block"></i>
-        Belum ada siswa yang ditampilkan. Pilih Kelas dan Pengampu terlebih dahulu.
-      </td>
-    </tr>
-  `;
-}
-
-// ==========================================
-// 3. KIRIM HASIL INPUT (TEMBAK KE urlTulis)
-// ==========================================
-async function submitBatchData() {
-  const tanggal = document.getElementById('inputTanggal').value;
-  const pertemuan = document.getElementById('inputPertemuan').value;
-  const program = document.getElementById('selectProgram').value;
-  const kelas = document.getElementById('selectKelas').value;
-  const pengampu = document.getElementById('selectPengampu').value;
-
-  if (!tanggal || !pertemuan || !kelas || !pengampu) {
-    showAlert('Data Belum Lengkap', 'Harap lengkapi semua parameter header (Tanggal, Pertemuan, Kelas, dan Pengampu)!', 'warning');
-    return;
-  }
-
-  if (currentStudents.length === 0) {
-    showAlert('Data Kosong', 'Tidak ada siswa yang dikirim!', 'warning');
-    return;
-  }
-
-  const entries = currentStudents.map((siswa, index) => {
-    const kehadiran = document.getElementById(`attendance_${index}`).value;
-    const keterangan = document.getElementById(`keterangan_${index}`).value;
-
-    if (program === 'Tahsin') {
-      return {
-        namaSiswa: siswa.namaSiswa,
-        kehadiran,
-        buku: document.getElementById(`buku_${index}`).value,
-        halaman: document.getElementById(`halaman_${index}`).value,
-        keterangan
-      };
-    } else {
-      return {
-        namaSiswa: siswa.namaSiswa,
-        kehadiran,
-        surat: document.getElementById(`surat_${index}`).value,
-        ayat: document.getElementById(`ayat_${index}`).value,
-        keterangan
-      };
+    if (currentStudents.length === 0) {
+      alert('Tidak ada siswa yang dikirim!');
+      return;
     }
-  });
 
-  const payload = {
-    program,
-    tanggal,
-    pertemuan,
-    kelas,
-    pengampu,
-    entries
-  };
+    const entries = currentStudents.map((siswa, index) => {
+      const kehadiran = document.getElementById(`attendance_${index}`).value;
+      const keterangan = document.getElementById(`keterangan_${index}`).value;
 
-  showLoading(`Mengirimkan ${entries.length} data jurnal ke Google Sheets...`);
-
-  try {
-    // MEMANGGIL URL TULIS (Spreadsheet Kedua)
-    const response = await fetch(urlTulis, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
+      if (program === 'Tahsin') {
+        return {
+          namaSiswa: siswa.namaSiswa,
+          kehadiran,
+          buku: document.getElementById(`buku_${index}`).value,
+          halaman: document.getElementById(`halaman_${index}`).value,
+          keterangan
+        };
+      } else {
+        return {
+          namaSiswa: siswa.namaSiswa,
+          kehadiran,
+          surat: document.getElementById(`surat_${index}`).value,
+          ayat: document.getElementById(`ayat_${index}`).value,
+          keterangan
+        };
+      }
     });
 
-    const json = await response.json();
+    const payload = {
+      program,
+      tanggal,
+      pertemuan,
+      kelas,
+      pengampu,
+      entries
+    };
 
-    if (json.status === 'success') {
-      showAlert('Berhasil Ditambahkan', json.message, 'success');
-      
-      document.getElementById('inputPertemuan').value = parseInt(pertemuan) + 1;
-      document.getElementById('selectKelas').value = '';
-      const pengampuSelect = document.getElementById('selectPengampu');
-      pengampuSelect.value = '';
-      pengampuSelect.disabled = true;
+    showLoading(`Mengirimkan ${entries.length} data jurnal ke Google Sheets...`);
 
-      resetTable();
-    } else {
-      showAlert('Gagal Menyimpan', json.message, 'error');
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+
+      const json = await response.json();
+
+      if (json.status === 'success') {
+        alert('✅ ' + json.message);
+        
+        // Reset Form & Layar ke Default
+        document.getElementById('inputPertemuan').value = parseInt(pertemuan) + 1;
+        document.getElementById('selectKelas').value = '';
+        const pengampuSelect = document.getElementById('selectPengampu');
+        pengampuSelect.value = '';
+        pengampuSelect.disabled = true;
+
+        resetTable();
+      } else {
+        alert('❌ Gagal menyimpan data: ' + json.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('❌ Terjadi kesalahan saat mengirim data: ' + err.message);
+    } finally {
+      hideLoading();
     }
-  } catch (err) {
-    console.error(err);
-    showAlert('Terjadi Kesalahan', err.message, 'error');
-  } finally {
-    hideLoading();
   }
-}
 </script>
 </body>
 </html>
