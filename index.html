@@ -157,12 +157,12 @@
 
   <!-- JavaScript Application Logic -->
   <script>
-  // URL Google Apps Script T2Q yang sudah terkunci otomatis
+  // URL Google Apps Script T2Q
 const gasUrl = "https://script.google.com/macros/s/AKfycbzwrfVGzMHmlWUxr9NZl8lp2j_YshyDHHVO9QpEuBvJQKfqa8QQKDfOCgiRZqCPqmWN/exec"; 
 
 let masterData = []; 
 let currentStudents = []; 
-let mapJurnalT2Q = {}; 
+let mapJurnalT2Q = {}; // Penampung jatah mengajar hasil parsing
 
 const BUKU_OPTIONS = [
   'Wafa 1', 'Wafa 2', 'Wafa 3', 'Wafa 4', 'Wafa 5', 'Buku Tajwid', 'Buku Ghorib', "Al-Qur'an"
@@ -184,7 +184,7 @@ function hideLoading() {
   document.getElementById('loadingOverlay').classList.remove('flex');
 }
 
-// --- Helper Custom Modal Popup ---
+// --- Custom Modal Helper ---
 function showAlert(title, message, type = 'warning') {
   const modal = document.getElementById('customModal');
   const modalTitle = document.getElementById('modalTitle');
@@ -219,6 +219,12 @@ function closeModal() {
   modal.classList.remove('flex');
 }
 
+// --- Normalisasi Nama untuk Pencocokan Akurat ---
+function cleanName(str) {
+  if (!str) return '';
+  return String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 async function fetchInitialData() {
   if (!gasUrl) return;
   showLoading('Mengambil Data dari Google Sheets...');
@@ -228,8 +234,28 @@ async function fetchInitialData() {
     const json = await response.json();
 
     if (json.status === 'success') {
-      masterData = json.data;
-      mapJurnalT2Q = json.jurnalHarianT2Q || {};
+      masterData = json.data || [];
+      
+      // PARSING DATA JATAH: Mengubah array/object sheet menjadi Map ber-key nama bersih
+      mapJurnalT2Q = {};
+      const rawJatah = json.jurnalHarianT2Q;
+
+      if (Array.isArray(rawJatah)) {
+        rawJatah.forEach(item => {
+          const nama = item['Nama Lengkap'] || item.nama || item['Nama'];
+          const target = item['YANG HARUS DIISI'] ?? item.yangHarusDiisi ?? item.target ?? 0;
+          if (nama) {
+            mapJurnalT2Q[cleanName(nama)] = Number(target);
+          }
+        });
+      } else if (typeof rawJatah === 'object' && rawJatah !== null) {
+        Object.keys(rawJatah).forEach(key => {
+          const val = rawJatah[key];
+          const target = typeof val === 'object' ? (val['YANG HARUS DIISI'] ?? val.target ?? 0) : val;
+          mapJurnalT2Q[cleanName(key)] = Number(target);
+        });
+      }
+
       populateKelasDropdown();
     } else {
       showAlert('Gagal Memuat', 'Gagal memuat data: ' + json.message, 'error');
@@ -288,13 +314,6 @@ function handleKelasChange() {
   resetTable();
 }
 
-// --- Helper Normalisasi Nama (Mengabaikan Spasi, Titik, Koma & Huruf Kapital) ---
-function normalizeName(name) {
-  if (!name) return '';
-  return String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-// --- Perbaikan Fungsi handlePengampuChange ---
 function handlePengampuChange() {
   const selectedKelas = document.getElementById('selectKelas').value;
   const selectedPengampu = document.getElementById('selectPengampu').value;
@@ -304,27 +323,14 @@ function handlePengampuChange() {
     return;
   }
 
-  // Normalisasi kunci pencarian nama pengampu
-  const targetKey = normalizeName(selectedPengampu);
-  
-  // Cari data jatah mengajar berdasarkan nama yang sudah dinormalisasi
-  let infoJatah = null;
-  if (mapJurnalT2Q) {
-    const foundKey = Object.keys(mapJurnalT2Q).find(
-      key => normalizeName(key) === targetKey
-    );
-    if (foundKey) {
-      infoJatah = mapJurnalT2Q[foundKey];
-    }
-  }
-
-  // Ambil nilai jatah (mendukung properti target atau yangHarusDiisi)
-  const target = infoJatah ? Number(infoJatah.target ?? infoJatah.yangHarusDiisi ?? 0) : 0;
+  // Pencarian nama yang sudah dinormalisasi
+  const keyPengampu = cleanName(selectedPengampu);
+  const target = mapJurnalT2Q[keyPengampu] ?? 0;
 
   if (target <= 0) {
     showAlert(
       'Akses Ditolak', 
-      `<b>Ust/Ustadzah ${selectedPengampu}</b> tidak memiliki jatah mengajar hari ini (Yang harus diisi: 0).`, 
+      `<b>Ust/Ustadzah ${selectedPengampu}</b> tidak memiliki jatah mengajar hari ini (Yang harus diisi: ${target}).`, 
       'warning'
     );
     document.getElementById('selectPengampu').value = '';
@@ -552,7 +558,6 @@ async function submitBatchData() {
     if (json.status === 'success') {
       showAlert('Berhasil Ditambahkan', json.message, 'success');
       
-      // Reset Form & Layar ke Default
       document.getElementById('inputPertemuan').value = parseInt(pertemuan) + 1;
       document.getElementById('selectKelas').value = '';
       const pengampuSelect = document.getElementById('selectPengampu');
