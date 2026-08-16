@@ -399,6 +399,42 @@ function resetTable() {
   `;
 }
 
+    // Fungsi untuk mengubah warna baris & menonaktifkan input jika siswa tidak Hadir
+function toggleRowDetails(index) {
+  const attendance = document.getElementById(`attendance_${index}`).value;
+  const row = document.getElementById(`row_${index}`);
+  const detailFields = document.querySelectorAll(`.detail-field_${index}`);
+
+  if (attendance === 'Hadir') {
+    // Kembalikan ke tampilan normal
+    row.classList.remove('bg-slate-200/60', 'opacity-60');
+    detailFields.forEach(field => {
+      field.disabled = false;
+      field.classList.remove('bg-slate-200', 'cursor-not-allowed');
+      field.classList.add('bg-slate-50');
+    });
+  } else {
+    // Ubah warna baris menjadi redup/abu-abu & kunci semua kolom input detail
+    row.classList.add('bg-slate-200/60', 'opacity-60');
+    detailFields.forEach(field => {
+      field.disabled = true;
+      field.classList.remove('bg-slate-50');
+      field.classList.add('bg-slate-200', 'cursor-not-allowed');
+    });
+  }
+}
+
+// Fungsi tombol pintas "Set Semua Hadir"
+function setAllAttendance(status) {
+  currentStudents.forEach((_, index) => {
+    const select = document.getElementById(`attendance_${index}`);
+    if (select) {
+      select.value = status;
+      toggleRowDetails(index);
+    }
+  });
+}
+
   async function submitBatchData() {
     const tanggal = document.getElementById('inputTanggal').value;
     const pertemuan = document.getElementById('inputPertemuan').value;
