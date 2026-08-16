@@ -288,6 +288,13 @@ function handleKelasChange() {
   resetTable();
 }
 
+// --- Helper Normalisasi Nama (Mengabaikan Spasi, Titik, Koma & Huruf Kapital) ---
+function normalizeName(name) {
+  if (!name) return '';
+  return String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// --- Perbaikan Fungsi handlePengampuChange ---
 function handlePengampuChange() {
   const selectedKelas = document.getElementById('selectKelas').value;
   const selectedPengampu = document.getElementById('selectPengampu').value;
@@ -297,9 +304,22 @@ function handlePengampuChange() {
     return;
   }
 
-  // Pengecekan Jatah Mengajar dari Sheet Jurnal Harian T2Q
-  const infoJatah = mapJurnalT2Q[selectedPengampu];
-  const target = infoJatah ? Number(infoJatah.target) : 0;
+  // Normalisasi kunci pencarian nama pengampu
+  const targetKey = normalizeName(selectedPengampu);
+  
+  // Cari data jatah mengajar berdasarkan nama yang sudah dinormalisasi
+  let infoJatah = null;
+  if (mapJurnalT2Q) {
+    const foundKey = Object.keys(mapJurnalT2Q).find(
+      key => normalizeName(key) === targetKey
+    );
+    if (foundKey) {
+      infoJatah = mapJurnalT2Q[foundKey];
+    }
+  }
+
+  // Ambil nilai jatah (mendukung properti target atau yangHarusDiisi)
+  const target = infoJatah ? Number(infoJatah.target ?? infoJatah.yangHarusDiisi ?? 0) : 0;
 
   if (target <= 0) {
     showAlert(
@@ -318,7 +338,6 @@ function handlePengampuChange() {
 
   renderStudentTable();
 
-  // Update info status jatah di badge
   document.getElementById('summaryText').textContent = 
     `Terdeteksi jatah mengajar: ${target} kelas. (${currentStudents.length} siswa siap diinput).`;
 }
