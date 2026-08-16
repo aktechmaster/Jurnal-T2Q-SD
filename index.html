@@ -146,6 +146,7 @@
 
   let masterData = []; 
   let currentStudents = []; 
+  let mapJurnalT2Q = {}; // <-- Penampung data jatah T2Q
 
   const BUKU_OPTIONS = [
     'Wafa 1', 'Wafa 2', 'Wafa 3', 'Wafa 4', 'Wafa 5', 'Buku Tajwid', 'Buku Ghorib', "Al-Qur'an"
@@ -177,6 +178,7 @@
 
       if (json.status === 'success') {
         masterData = json.data;
+        mapJurnalT2Q = json.jurnalHarianT2Q || {}; // <-- Simpan data jatah di sini
         populateKelasDropdown();
       } else {
         alert('Gagal memuat data: ' + json.message);
@@ -268,6 +270,38 @@
       renderStudentTable();
     }
   }
+
+    function handlePengampuChange() {
+  const selectedKelas = document.getElementById('selectKelas').value;
+  const selectedPengampu = document.getElementById('selectPengampu').value;
+
+  if (!selectedKelas || !selectedPengampu) {
+    resetTable();
+    return;
+  }
+
+  // --- LOGIKA CEK JATAH MENGAJAR ---
+  const infoJatah = mapJurnalT2Q[selectedPengampu];
+  const target = infoJatah ? Number(infoJatah.target) : 0;
+
+  if (target <= 0) {
+    alert(`⚠️ Akses Ditolak:\nUst/Ustadzah ${selectedPengampu} tidak memiliki jatah mengajar hari ini (Yang harus diisi: 0).`);
+    document.getElementById('selectPengampu').value = '';
+    resetTable();
+    return;
+  }
+
+  // Jika jatah ada, izinkan lanjut
+  currentStudents = masterData.filter(
+    item => item.kelas === selectedKelas && item.pengampu === selectedPengampu
+  );
+
+  renderStudentTable();
+  
+  // Update info status jatah di badge
+  document.getElementById('summaryText').textContent = 
+    `Terdeteksi jatah mengajar: ${target} kelas. (${currentStudents.length} siswa siap diinput).`;
+}
 
   function renderStudentTable() {
     const tbody = document.getElementById('tableBody');
