@@ -72,10 +72,14 @@
           <select id="selectPengampu" onchange="handlePengampuChange()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none" disabled>
             <option value="">-- Pilih Pengampu --</option>
           </select>
+
+          <!-- Indicator Jatah Jurnal Guru -->
+          <div id="quotaBadge" class="mt-1.5 hidden text-xs font-medium px-2 py-1 rounded"></div>
         </div>
       </div>
     </section>
 
+    
     <!-- Card 2: Batch Table Input -->
     <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3 mb-4">
@@ -145,258 +149,255 @@
   const gasUrl = "https://script.google.com/macros/s/AKfycbzwrfVGzMHmlWUxr9NZl8lp2j_YshyDHHVO9QpEuBvJQKfqa8QQKDfOCgiRZqCPqmWN/exec"; 
 
   let masterData = []; 
-  let currentStudents = []; 
+let teacherQuotas = {}; // Menyimpan dictionary jatah guru
+let currentStudents = []; 
 
-  const BUKU_OPTIONS = [
-    'Wafa 1', 'Wafa 2', 'Wafa 3', 'Wafa 4', 'Wafa 5', 'Buku Tajwid', 'Buku Ghorib', "Al-Qur'an"
-  ];
+const BUKU_OPTIONS = [
+  'Wafa 1', 'Wafa 2', 'Wafa 3', 'Wafa 4', 'Wafa 5', 'Buku Tajwid', 'Buku Ghorib', "Al-Qur'an"
+];
 
-  document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('inputTanggal').value = new Date().toISOString().split('T')[0];
-    fetchInitialData();
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('inputTanggal').value = new Date().toISOString().split('T')[0];
+  fetchInitialData();
+});
+
+function showLoading(text = 'Memuat Data...') {
+  document.getElementById('loadingText').innerText = text;
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+  document.getElementById('loadingOverlay').classList.add('flex');
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  document.getElementById('loadingOverlay').classList.remove('flex');
+}
+
+async function fetchInitialData() {
+  if (!gasUrl) return;
+  showLoading('Mengambil Data dari Google Sheets...');
+
+  try {
+    const response = await fetch(gasUrl);
+    const json = await response.json();
+
+    if (json.status === 'success') {
+      masterData = json.data;
+      teacherQuotas = json.quotas || {}; // Simpan data jatah pengisian
+      populateKelasDropdown();
+    } else {
+      alert('Gagal memuat data: ' + json.message);
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Terjadi kesalahan saat menghubungkan ke Google Apps Script: ' + err.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+function populateKelasDropdown() {
+  const kelasSelect = document.getElementById('selectKelas');
+  kelasSelect.innerHTML = '<option value="">-- Pilih Kelas --</option>';
+
+  const uniqueKelas = [...new Set(masterData.map(item => item.kelas))].sort();
+  uniqueKelas.forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = k;
+    opt.textContent = k;
+    kelasSelect.appendChild(opt);
   });
 
-  function showLoading(text = 'Memuat Data...') {
-    document.getElementById('loadingText').innerText = text;
-    document.getElementById('loadingOverlay').classList.remove('hidden');
-    document.getElementById('loadingOverlay').classList.add('flex');
-  }
+  const pengampuSelect = document.getElementById('selectPengampu');
+  pengampuSelect.innerHTML = '<option value="">-- Pilih Pengampu --</option>';
+  pengampuSelect.disabled = true;
+  
+  resetTable();
+}
 
-  function hideLoading() {
-    document.getElementById('loadingOverlay').classList.add('hidden');
-    document.getElementById('loadingOverlay').classList.remove('flex');
-  }
+function handleKelasChange() {
+  const selectedKelas = document.getElementById('selectKelas').value;
+  const pengampuSelect = document.getElementById('selectPengampu');
 
-  async function fetchInitialData() {
-    if (!gasUrl) return;
-    showLoading('Mengambil Data dari Google Sheets...');
+  pengampuSelect.innerHTML = '<option value="">-- Pilih Pengampu --</option>';
 
-    try {
-      const response = await fetch(gasUrl);
-      const json = await response.json();
-
-      if (json.status === 'success') {
-        masterData = json.data;
-        populateKelasDropdown();
-      } else {
-        alert('Gagal memuat data: ' + json.message);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Terjadi kesalahan saat menghubungkan ke Google Apps Script: ' + err.message);
-    } finally {
-      hideLoading();
-    }
-  }
-
-  function populateKelasDropdown() {
-    const kelasSelect = document.getElementById('selectKelas');
-    kelasSelect.innerHTML = '<option value="">-- Pilih Kelas --</option>';
-
-    const uniqueKelas = [...new Set(masterData.map(item => item.kelas))].sort();
-    uniqueKelas.forEach(k => {
-      const opt = document.createElement('option');
-      opt.value = k;
-      opt.textContent = k;
-      kelasSelect.appendChild(opt);
-    });
-
-    const pengampuSelect = document.getElementById('selectPengampu');
-    pengampuSelect.innerHTML = '<option value="">-- Pilih Pengampu --</option>';
+  if (!selectedKelas) {
     pengampuSelect.disabled = true;
-    
     resetTable();
+    return;
   }
 
-  function handleKelasChange() {
-    const selectedKelas = document.getElementById('selectKelas').value;
-    const pengampuSelect = document.getElementById('selectPengampu');
+  const filteredPengampu = [...new Set(
+    masterData.filter(item => item.kelas === selectedKelas).map(item => item.pengampu)
+  )].sort();
 
-    pengampuSelect.innerHTML = '<option value="">-- Pilih Pengampu --</option>';
+  filteredPengampu.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    pengampuSelect.appendChild(opt);
+  });
 
-    if (!selectedKelas) {
-      pengampuSelect.disabled = true;
-      resetTable();
-      return;
-    }
+  pengampuSelect.disabled = false;
+  resetTable();
+}
 
-    const filteredPengampu = [...new Set(
-      masterData.filter(item => item.kelas === selectedKelas).map(item => item.pengampu)
-    )].sort();
+function handlePengampuChange() {
+  const selectedKelas = document.getElementById('selectKelas').value;
+  const selectedPengampu = document.getElementById('selectPengampu').value;
 
-    filteredPengampu.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p;
-      opt.textContent = p;
-      pengampuSelect.appendChild(opt);
-    });
-
-    pengampuSelect.disabled = false;
+  if (!selectedKelas || !selectedPengampu) {
     resetTable();
+    return;
   }
 
-  function handlePengampuChange() {
-    const selectedKelas = document.getElementById('selectKelas').value;
+  // Check Jatah Guru
+  const rawQuota = teacherQuotas[selectedPengampu];
+  const quotaBadge = document.getElementById('quotaBadge');
+  
+  let sisaJatah = 0;
+  if (typeof rawQuota === 'number' && rawQuota < 0) {
+    sisaJatah = Math.abs(rawQuota); // Nilai -1 -> 1x, -2 -> 2x
+  }
+
+  if (sisaJatah > 0) {
+    quotaBadge.className = "mt-1.5 block text-xs font-semibold px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200";
+    quotaBadge.innerHTML = `<i class="fa-solid fa-clock"></i> Sisa jatah pengisian: <b>${sisaJatah} kali</b> hari ini.`;
+  } else {
+    quotaBadge.className = "mt-1.5 block text-xs font-semibold px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200";
+    quotaBadge.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Jatah jurnal hari ini sudah <b>PAS / Terpenuhi</b>!`;
+  }
+
+  currentStudents = masterData.filter(
+    item => item.kelas === selectedKelas && item.pengampu === selectedPengampu
+  );
+
+  renderStudentTable(sisaJatah);
+}
+
+function handleProgramChange() {
+  const program = document.getElementById('selectProgram').value;
+  const thDetail1 = document.getElementById('thDetail1');
+  const thDetail2 = document.getElementById('thDetail2');
+
+  if (program === 'Tahsin') {
+    thDetail1.textContent = 'Buku';
+    thDetail2.textContent = 'Halaman';
+  } else {
+    thDetail1.textContent = 'Surat';
+    thDetail2.textContent = 'Ayat';
+  }
+
+  if (currentStudents.length > 0) {
     const selectedPengampu = document.getElementById('selectPengampu').value;
+    const rawQuota = teacherQuotas[selectedPengampu];
+    const sisaJatah = (typeof rawQuota === 'number' && rawQuota < 0) ? Math.abs(rawQuota) : 0;
+    renderStudentTable(sisaJatah);
+  }
+}
 
-    if (!selectedKelas || !selectedPengampu) {
-      resetTable();
-      return;
-    }
+function renderStudentTable(sisaJatah = 1) {
+  const tbody = document.getElementById('tableBody');
+  const program = document.getElementById('selectProgram').value;
+  const quickActions = document.getElementById('quickActions');
+  const btnSubmit = document.getElementById('btnSubmit');
 
-    currentStudents = masterData.filter(
-      item => item.kelas === selectedKelas && item.pengampu === selectedPengampu
-    );
-
-    renderStudentTable();
+  if (currentStudents.length === 0) {
+    resetTable();
+    return;
   }
 
-  function handleProgramChange() {
-    const program = document.getElementById('selectProgram').value;
-    const thDetail1 = document.getElementById('thDetail1');
-    const thDetail2 = document.getElementById('thDetail2');
+  quickActions.classList.remove('hidden');
+  
+  // Kunci tombol Submit jika sisa jatah sudah 0 / PAS
+  if (sisaJatah <= 0) {
+    btnSubmit.disabled = true;
+    document.getElementById('summaryText').textContent = `Jatah guru sudah terpenuhi (PAS). Pengisian terkunci.`;
+  } else {
+    btnSubmit.disabled = false;
+    document.getElementById('summaryText').textContent = `${currentStudents.length} siswa siap diinput.`;
+  }
+
+  document.getElementById('studentCountBadge').textContent = `Total: ${currentStudents.length} Siswa`;
+
+  tbody.innerHTML = '';
+
+  currentStudents.forEach((siswa, index) => {
+    const tr = document.createElement('tr');
+    tr.id = `row_${index}`;
+    tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+    
+    let detailInputsHtml = '';
 
     if (program === 'Tahsin') {
-      thDetail1.textContent = 'Buku';
-      thDetail2.textContent = 'Halaman';
-    } else {
-      thDetail1.textContent = 'Surat';
-      thDetail2.textContent = 'Ayat';
-    }
-
-    if (currentStudents.length > 0) {
-      renderStudentTable();
-    }
-  }
-
-  function renderStudentTable() {
-    const tbody = document.getElementById('tableBody');
-    const program = document.getElementById('selectProgram').value;
-    const quickActions = document.getElementById('quickActions');
-    const btnSubmit = document.getElementById('btnSubmit');
-
-    if (currentStudents.length === 0) {
-      resetTable();
-      return;
-    }
-
-    quickActions.classList.remove('hidden');
-    btnSubmit.disabled = false;
-
-    document.getElementById('studentCountBadge').textContent = `Total: ${currentStudents.length} Siswa`;
-    document.getElementById('summaryText').textContent = `${currentStudents.length} siswa siap diinput.`;
-
-    tbody.innerHTML = '';
-
-    currentStudents.forEach((siswa, index) => {
-      const tr = document.createElement('tr');
-      tr.id = `row_${index}`;
-      tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
-      
-      let detailInputsHtml = '';
-
-      if (program === 'Tahsin') {
-        const bukuOptionsHtml = BUKU_OPTIONS.map(b => `<option value="${b}">${b}</option>`).join('');
-        detailInputsHtml = `
-          <td class="p-3">
-            <select id="buku_${index}" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
-              ${bukuOptionsHtml}
-            </select>
-          </td>
-          <td class="p-3">
-            <input type="text" id="halaman_${index}" placeholder="Contoh: 12 / 1-5" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
-          </td>
-        `;
-      } else {
-        detailInputsHtml = `
-          <td class="p-3">
-            <input type="text" id="surat_${index}" placeholder="Contoh: Al-Mulk" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
-          </td>
-          <td class="p-3">
-            <input type="text" id="ayat_${index}" placeholder="Contoh: 1-10" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
-          </td>
-        `;
-      }
-
-      tr.innerHTML = `
-        <td class="p-3 text-center text-slate-400 font-medium">${index + 1}</td>
-        <td class="p-3 font-semibold text-slate-700">${siswa.namaSiswa}</td>
+      const bukuOptionsHtml = BUKU_OPTIONS.map(b => `<option value="${b}">${b}</option>`).join('');
+      detailInputsHtml = `
         <td class="p-3">
-          <select id="attendance_${index}" onchange="toggleRowDetails(${index})" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-semibold focus:ring-1 focus:ring-sky-500">
-            <option value="Hadir" selected class="text-emerald-600">Hadir</option>
-            <option value="Sakit" class="text-amber-600">Sakit</option>
-            <option value="Izin" class="text-blue-600">Izin</option>
-            <option value="Alfa" class="text-rose-600">Alfa</option>
+          <select id="buku_${index}" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
+            ${bukuOptionsHtml}
           </select>
         </td>
-        ${detailInputsHtml}
         <td class="p-3">
-          <select id="keterangan_${index}" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
-            <option value="Lancar">Lancar</option>
-            <option value="Ulang">Ulang</option>
-          </select>
+          <input type="text" id="halaman_${index}" placeholder="Contoh: 12 / 1-5" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
         </td>
       `;
-
-      tbody.appendChild(tr);
-    });
-  }
-
-  function toggleRowDetails(index) {
-    const attendance = document.getElementById(`attendance_${index}`).value;
-    const detailFields = document.querySelectorAll(`.detail-field_${index}`);
-    const row = document.getElementById(`row_${index}`);
-
-    if (attendance === 'Hadir') {
-      row.classList.remove('bg-slate-200', 'opacity-50');
-      row.classList.add('hover:bg-slate-50');
-
-      detailFields.forEach(field => {
-        field.disabled = false;
-        field.classList.remove('opacity-40', 'bg-slate-300');
-      });
     } else {
-      row.classList.add('bg-slate-200', 'opacity-50');
-      row.classList.remove('hover:bg-slate-50');
-
-      detailFields.forEach(field => {
-        field.disabled = true;
-        field.classList.add('opacity-40', 'bg-slate-300');
-      });
-    }
-  }
-
-  function setAllAttendance(status) {
-    currentStudents.forEach((_, index) => {
-      const select = document.getElementById(`attendance_${index}`);
-      if (select) {
-        select.value = status;
-        toggleRowDetails(index);
-      }
-    });
-  }
-
-  function resetTable() {
-    currentStudents = [];
-    const tbody = document.getElementById('tableBody');
-    const quickActions = document.getElementById('quickActions');
-    const btnSubmit = document.getElementById('btnSubmit');
-
-    quickActions.classList.add('hidden');
-    btnSubmit.disabled = true;
-
-    document.getElementById('studentCountBadge').textContent = 'Pilih Kelas & Pengampu untuk menampilkan data siswa.';
-    document.getElementById('summaryText').textContent = 'Ready';
-
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" class="text-center py-10 text-slate-400">
-          <i class="fa-solid fa-inbox text-3xl mb-2 block"></i>
-          Belum ada siswa yang ditampilkan. Pilih Kelas dan Pengampu terlebih dahulu.
+      detailInputsHtml = `
+        <td class="p-3">
+          <input type="text" id="surat_${index}" placeholder="Contoh: Al-Mulk" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
         </td>
-      </tr>
+        <td class="p-3">
+          <input type="text" id="ayat_${index}" placeholder="Contoh: 1-10" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
+        </td>
+      `;
+    }
+
+    tr.innerHTML = `
+      <td class="p-3 text-center text-slate-400 font-medium">${index + 1}</td>
+      <td class="p-3 font-semibold text-slate-700">${siswa.namaSiswa}</td>
+      <td class="p-3">
+        <select id="attendance_${index}" onchange="toggleRowDetails(${index})" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-semibold focus:ring-1 focus:ring-sky-500">
+          <option value="Hadir" selected class="text-emerald-600">Hadir</option>
+          <option value="Sakit" class="text-amber-600">Sakit</option>
+          <option value="Izin" class="text-blue-600">Izin</option>
+          <option value="Alfa" class="text-rose-600">Alfa</option>
+        </select>
+      </td>
+      ${detailInputsHtml}
+      <td class="p-3">
+        <select id="keterangan_${index}" class="detail-field_${index} w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-sky-500">
+          <option value="Lancar">Lancar</option>
+          <option value="Ulang">Ulang</option>
+        </select>
+      </td>
     `;
-  }
+
+    tbody.appendChild(tr);
+  });
+}
+
+function resetTable() {
+  currentStudents = [];
+  const tbody = document.getElementById('tableBody');
+  const quickActions = document.getElementById('quickActions');
+  const btnSubmit = document.getElementById('btnSubmit');
+  const quotaBadge = document.getElementById('quotaBadge');
+
+  quickActions.classList.add('hidden');
+  btnSubmit.disabled = true;
+  if (quotaBadge) quotaBadge.classList.add('hidden');
+
+  document.getElementById('studentCountBadge').textContent = 'Pilih Kelas & Pengampu untuk menampilkan data siswa.';
+  document.getElementById('summaryText').textContent = 'Ready';
+
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="6" class="text-center py-10 text-slate-400">
+        <i class="fa-solid fa-inbox text-3xl mb-2 block"></i>
+        Belum ada siswa yang ditampilkan. Pilih Kelas dan Pengampu terlebih dahulu.
+      </td>
+    </tr>
+  `;
+}
 
   async function submitBatchData() {
     const tanggal = document.getElementById('inputTanggal').value;
